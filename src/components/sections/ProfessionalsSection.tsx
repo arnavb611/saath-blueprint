@@ -1,4 +1,3 @@
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Star, MapPin, Clock, ArrowRight } from "lucide-react";
 
@@ -39,12 +38,6 @@ const professionals = [
 ];
 
 const ProfessionalsSection = () => {
-  const navigate = useNavigate();
-
-  const handleBookNow = (professional: typeof professionals[0]) => {
-    navigate(`/tracking?worker=${encodeURIComponent(professional.name)}&service=${encodeURIComponent(professional.service)}`);
-  };
-
   return (
     <section id="professionals" className="py-20 md:py-28 bg-muted/30">
       <div className="container">
@@ -118,12 +111,7 @@ const ProfessionalsSection = () => {
               {/* Footer */}
               <div className="flex items-center justify-between pt-4 border-t border-border">
                 <span className="font-semibold text-foreground">{pro.price}</span>
-                <Button 
-                  variant="default" 
-                  size="sm"
-                  disabled={!pro.available}
-                  onClick={() => handleBookNow(pro)}
-                >
+                <Button variant="default" size="sm">
                   Book Now
                 </Button>
               </div>
