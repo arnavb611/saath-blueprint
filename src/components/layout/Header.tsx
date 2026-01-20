@@ -1,24 +1,31 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Menu, X, LogOut } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 const navLinks = [
-  { name: "Services", href: "#services" },
-  { name: "How It Works", href: "#how-it-works" },
-  { name: "Professionals", href: "#professionals" },
-  { name: "About", href: "#about" },
+  { name: "Services", href: "/services" },
+  { name: "How It Works", href: "/#how-it-works" },
+  { name: "Join as Worker", href: "/join-as-worker" },
 ];
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, isAuthenticated, isAdmin, logout } = useAuthContext();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
+    <header className="fixed top-0 left-0 right-0 z-50 glass border-b border-border/50">
       <div className="container flex items-center justify-between h-16 md:h-20">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl bg-gradient-hero flex items-center justify-center shadow-soft">
+          <div className="w-9 h-9 rounded-xl bg-gradient-hero flex items-center justify-center shadow-glow">
             <span className="text-primary-foreground font-bold text-lg">S</span>
           </div>
           <span className="text-xl font-bold text-foreground">Saath</span>
@@ -27,24 +34,40 @@ const Header = () => {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-8">
           {navLinks.map((link) => (
-            <a
+            <Link
               key={link.name}
-              href={link.href}
+              to={link.href}
               className="text-muted-foreground hover:text-foreground font-medium transition-colors duration-200"
             >
               {link.name}
-            </a>
+            </Link>
           ))}
         </nav>
 
         {/* Desktop CTA */}
         <div className="hidden md:flex items-center gap-3">
-          <Button variant="ghost" size="sm">
-            Log in
-          </Button>
-          <Button variant="default" size="sm">
-            Get Started
-          </Button>
+          {isAuthenticated ? (
+            <>
+              <span className="text-sm text-muted-foreground">Hi, {user?.name}</span>
+              {isAdmin && (
+                <Button variant="outline" size="sm" onClick={() => navigate('/admin')}>
+                  Admin
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>
+                Log in
+              </Button>
+              <Button variant="default" size="sm" onClick={() => navigate('/register')}>
+                Get Started
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
@@ -58,25 +81,40 @@ const Header = () => {
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-background border-b border-border animate-fade-in">
+        <div className="md:hidden glass border-b border-border animate-fade-in">
           <nav className="container py-4 flex flex-col gap-2">
             {navLinks.map((link) => (
-              <a
+              <Link
                 key={link.name}
-                href={link.href}
+                to={link.href}
                 className="py-3 px-4 text-foreground font-medium hover:bg-muted rounded-lg transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 {link.name}
-              </a>
+              </Link>
             ))}
             <div className="flex flex-col gap-2 pt-4 border-t border-border mt-2">
-              <Button variant="outline" className="w-full">
-                Log in
-              </Button>
-              <Button variant="default" className="w-full">
-                Get Started
-              </Button>
+              {isAuthenticated ? (
+                <>
+                  {isAdmin && (
+                    <Button variant="outline" className="w-full" onClick={() => { navigate('/admin'); setMobileMenuOpen(false); }}>
+                      Admin Dashboard
+                    </Button>
+                  )}
+                  <Button variant="default" className="w-full" onClick={() => { handleLogout(); setMobileMenuOpen(false); }}>
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" className="w-full" onClick={() => { navigate('/login'); setMobileMenuOpen(false); }}>
+                    Log in
+                  </Button>
+                  <Button variant="default" className="w-full" onClick={() => { navigate('/register'); setMobileMenuOpen(false); }}>
+                    Get Started
+                  </Button>
+                </>
+              )}
             </div>
           </nav>
         </div>
