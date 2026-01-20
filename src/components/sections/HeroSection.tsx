@@ -1,17 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Play, Star, Users, Shield } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
 const HeroSection = () => {
-  const navigate = useNavigate();
-
   return (
     <section className="relative pt-32 pb-20 md:pt-40 md:pb-32 overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute top-20 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse-soft" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent/10 rounded-full blur-3xl animate-pulse-soft" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-glow opacity-50" />
+        <div className="absolute top-20 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent/5 rounded-full blur-3xl" />
       </div>
 
       <div className="container">
@@ -19,9 +15,9 @@ const HeroSection = () => {
           {/* Left Content */}
           <div className="animate-slide-up">
             {/* Trust Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary border border-primary/10 mb-6">
               <Star className="w-4 h-4 text-accent fill-accent" />
-              <span className="text-sm font-medium text-foreground">
+              <span className="text-sm font-medium text-secondary-foreground">
                 Trusted by 50,000+ families
               </span>
             </div>
@@ -40,13 +36,13 @@ const HeroSection = () => {
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row gap-4 mb-12">
-              <Button variant="hero" size="xl" onClick={() => navigate('/services')}>
+              <Button variant="hero" size="xl">
                 Find a Professional
                 <ArrowRight className="w-5 h-5" />
               </Button>
-              <Button variant="outline" size="xl" onClick={() => navigate('/join-as-worker')}>
+              <Button variant="outline" size="xl">
                 <Play className="w-5 h-5" />
-                Join as Worker
+                See How It Works
               </Button>
             </div>
 
