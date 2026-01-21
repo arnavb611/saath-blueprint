@@ -11,6 +11,7 @@ import Register from "./pages/Register";
 import AdminDashboard from "./pages/AdminDashboard";
 import JoinAsWorker from "./pages/JoinAsWorker";
 import Services from "./pages/Services";
+import ScrollToHash from "@/components/routing/ScrollToHash";
 
 const queryClient = new QueryClient();
 
@@ -21,6 +22,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <ScrollToHash />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />

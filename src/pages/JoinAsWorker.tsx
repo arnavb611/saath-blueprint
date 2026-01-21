@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { Camera, ArrowLeft, Send, MapPin, Briefcase, Clock, User, Phone, Mail } 
 const JoinAsWorker = () => {
   const navigate = useNavigate();
   const services = getServices();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -38,8 +39,28 @@ const JoinAsWorker = () => {
     }
   };
 
+  const requestCameraAndOpen = async () => {
+    // Must be called from a user gesture (click/tap)
+    try {
+      if (navigator.mediaDevices?.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach((t) => t.stop());
+      }
+    } catch {
+      // If user denies permission, still allow picking from gallery.
+    } finally {
+      fileInputRef.current?.click();
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.photo) {
+      toast.error('Please add a photo to submit your application');
+      return;
+    }
+
     setIsSubmitting(true);
 
     setTimeout(() => {
@@ -95,23 +116,35 @@ const JoinAsWorker = () => {
             {/* Photo Upload */}
             <div className="flex flex-col items-center gap-4 pb-6 border-b border-border">
               <div className="relative">
-                <div className="w-24 h-24 rounded-2xl bg-secondary flex items-center justify-center overflow-hidden">
+                <button
+                  type="button"
+                  onClick={requestCameraAndOpen}
+                  className="w-24 h-24 rounded-2xl bg-secondary flex items-center justify-center overflow-hidden"
+                  aria-label="Add your photo"
+                >
                   {formData.photo ? (
                     <img src={formData.photo} alt="Preview" className="w-full h-full object-cover" />
                   ) : (
                     <Camera className="w-8 h-8 text-muted-foreground" />
                   )}
-                </div>
-                <label className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors">
+                </button>
+                <button
+                  type="button"
+                  onClick={requestCameraAndOpen}
+                  className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center hover:bg-primary/90 transition-colors"
+                  aria-label="Open camera"
+                >
                   <Camera className="w-4 h-4 text-primary-foreground" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                    required
-                  />
-                </label>
+                </button>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
               </div>
               <p className="text-sm text-muted-foreground">Upload your photo (required for verification)</p>
             </div>
