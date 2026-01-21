@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X, LogOut } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuthContext } from "@/contexts/AuthContext";
+import { useSupabaseAuthContext } from "@/contexts/SupabaseAuthContext";
 
 const navLinks = [
   { name: "Services", href: "/services" },
@@ -12,11 +12,11 @@ const navLinks = [
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, isAuthenticated, isAdmin, logout } = useAuthContext();
+  const { profile, isAuthenticated, isAdmin, signOut } = useSupabaseAuthContext();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     navigate('/');
   };
 
@@ -48,7 +48,7 @@ const Header = () => {
         <div className="hidden md:flex items-center gap-3">
           {isAuthenticated ? (
             <>
-              <span className="text-sm text-muted-foreground">Hi, {user?.name}</span>
+              <span className="text-sm text-muted-foreground">Hi, {profile?.name || 'User'}</span>
               {isAdmin && (
                 <Button variant="outline" size="sm" onClick={() => navigate('/admin')}>
                   Admin

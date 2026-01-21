@@ -3,13 +3,15 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { getServices, submitApplication, Service } from '@/lib/storage';
+import { getServices } from '@/lib/storage';
+import { supabase } from '@/integrations/supabase/client';
+import { useSupabaseAuthContext } from '@/contexts/SupabaseAuthContext';
 import { toast } from 'sonner';
 import { Camera, ArrowLeft, Send, MapPin, Briefcase, Clock, User, Phone, Mail } from 'lucide-react';
 
 const JoinAsWorker = () => {
   const navigate = useNavigate();
+  const { user } = useSupabaseAuthContext();
   const services = getServices();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,7 +55,7 @@ const JoinAsWorker = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.photo) {
@@ -63,12 +65,32 @@ const JoinAsWorker = () => {
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      submitApplication(formData);
+    try {
+      const { error } = await supabase
+        .from('worker_applications')
+        .insert({
+          user_id: user?.id || null,
+          name: formData.name,
+          phone: formData.phone,
+          email: formData.email,
+          service: formData.service,
+          area: formData.area,
+          experience: formData.experience,
+          expected_price: formData.expectedPrice,
+          photo: formData.photo,
+          status: 'pending',
+        });
+
+      if (error) throw error;
+
       toast.success('Application submitted successfully! We will review and get back to you.');
-      setIsSubmitting(false);
       navigate('/');
-    }, 1000);
+    } catch (error: any) {
+      console.error('Error submitting application:', error);
+      toast.error(error.message || 'Failed to submit application');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

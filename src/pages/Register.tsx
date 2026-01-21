@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useSupabaseAuthContext } from '@/contexts/SupabaseAuthContext';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 
@@ -13,23 +13,27 @@ const Register = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { register } = useAuthContext();
+  const { signUp } = useSupabaseAuthContext();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      const success = register(email, password, name);
-      if (success) {
-        toast.success('Account created successfully!');
-        navigate('/');
+    try {
+      const { user } = await signUp(email, password, name);
+      
+      if (user?.identities?.length === 0) {
+        toast.error('An account with this email already exists');
       } else {
-        toast.error('Email already exists');
+        toast.success('Account created successfully! Please check your email to verify.');
+        navigate('/');
       }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create account');
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   return (
