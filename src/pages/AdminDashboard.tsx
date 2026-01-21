@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useSupabaseAuthContext } from '@/contexts/SupabaseAuthContext';
 import { 
   getWorkers, 
   addWorker, 
@@ -38,7 +38,7 @@ import {
 } from 'lucide-react';
 
 const AdminDashboard = () => {
-  const { user, isAdmin, logout } = useAuthContext();
+  const { profile, isAdmin, signOut } = useSupabaseAuthContext();
   const navigate = useNavigate();
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -132,8 +132,8 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     navigate('/');
   };
 
@@ -156,7 +156,7 @@ const AdminDashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">Welcome, {user?.name}</span>
+            <span className="text-sm text-muted-foreground">Welcome, {profile?.name || 'Admin'}</span>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="w-4 h-4 mr-2" />
               Logout

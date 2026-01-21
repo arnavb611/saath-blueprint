@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useSupabaseAuthContext } from '@/contexts/SupabaseAuthContext';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 
@@ -12,23 +12,22 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuthContext();
+  const { signIn } = useSupabaseAuthContext();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      const success = login(email, password);
-      if (success) {
-        toast.success('Welcome back!');
-        navigate('/');
-      } else {
-        toast.error('Invalid email or password');
-      }
+    try {
+      await signIn(email, password);
+      toast.success('Welcome back!');
+      navigate('/');
+    } catch (error: any) {
+      toast.error(error.message || 'Invalid email or password');
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   return (
@@ -109,13 +108,6 @@ const Login = () => {
               <Link to="/register" className="text-primary hover:underline font-medium">
                 Sign up
               </Link>
-            </p>
-          </div>
-
-          {/* Admin hint */}
-          <div className="mt-6 p-4 bg-secondary/50 rounded-xl">
-            <p className="text-xs text-muted-foreground text-center">
-              Admin login: admin@saath.com / admin123
             </p>
           </div>
         </div>
