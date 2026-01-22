@@ -6,16 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSupabaseAuthContext } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  getWorkers, 
-  addWorker, 
-  updateWorker, 
-  deleteWorker, 
-  getServices, 
-  updateService, 
-  Worker,
-  Service,
-} from '@/lib/storage';
 import { toast } from 'sonner';
 import { 
   Users, 
@@ -53,15 +43,48 @@ interface SupabaseWorkerApplication {
   admin_notes: string | null;
 }
 
+// Type for Supabase workers
+interface SupabaseWorker {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  service: string;
+  area: string;
+  experience: string;
+  price: string;
+  photo: string | null;
+  rating: number;
+  reviews_count: number;
+  is_verified: boolean;
+  is_available: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Type for Supabase services
+interface SupabaseService {
+  id: string;
+  name: string;
+  description: string | null;
+  base_price: number;
+  price_unit: string;
+  emoji: string | null;
+  verified_workers_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 const AdminDashboard = () => {
   const { profile, isAdmin, signOut } = useSupabaseAuthContext();
   const navigate = useNavigate();
-  const [workers, setWorkers] = useState<Worker[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
+  const [workers, setWorkers] = useState<SupabaseWorker[]>([]);
+  const [services, setServices] = useState<SupabaseService[]>([]);
   const [applications, setApplications] = useState<SupabaseWorkerApplication[]>([]);
-  const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
-  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [editingWorker, setEditingWorker] = useState<SupabaseWorker | null>(null);
+  const [editingService, setEditingService] = useState<SupabaseService | null>(null);
   const [showAddWorker, setShowAddWorker] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   // New worker form
   const [newWorker, setNewWorker] = useState({
@@ -84,55 +107,129 @@ const AdminDashboard = () => {
   }, [isAdmin, navigate]);
 
   const loadData = async () => {
-    setWorkers(getWorkers());
-    setServices(getServices());
+    setLoading(true);
+    
+    // Fetch workers from Supabase
+    const { data: workersData, error: workersError } = await supabase
+      .from('workers' as never)
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (workersError) {
+      console.error('Error fetching workers:', workersError);
+      toast.error('Failed to load workers');
+    } else {
+      setWorkers((workersData as unknown as SupabaseWorker[]) || []);
+    }
+
+    // Fetch services from Supabase
+    const { data: servicesData, error: servicesError } = await supabase
+      .from('services' as never)
+      .select('*')
+      .order('name');
+    
+    if (servicesError) {
+      console.error('Error fetching services:', servicesError);
+      toast.error('Failed to load services');
+    } else {
+      setServices((servicesData as unknown as SupabaseService[]) || []);
+    }
     
     // Fetch applications from Supabase
-    const { data: apps, error } = await supabase
+    const { data: apps, error: appsError } = await supabase
       .from('worker_applications')
       .select('*')
       .order('created_at', { ascending: false });
     
-    if (error) {
-      console.error('Error fetching applications:', error);
+    if (appsError) {
+      console.error('Error fetching applications:', appsError);
       toast.error('Failed to load applications');
     } else if (apps) {
       setApplications(apps);
     }
+    
+    setLoading(false);
   };
 
-  const handleAddWorker = (e: React.FormEvent) => {
+  const handleAddWorker = async (e: React.FormEvent) => {
     e.preventDefault();
-    addWorker({
-      ...newWorker,
-      rating: 5.0,
-      reviews: 0,
-      available: true,
-      verified: true,
-    });
+    
+    const { error } = await supabase
+      .from('workers' as never)
+      .insert({
+        name: newWorker.name,
+        phone: newWorker.phone,
+        email: newWorker.email || null,
+        service: newWorker.service,
+        area: newWorker.area,
+        experience: newWorker.experience,
+        price: newWorker.price,
+        photo: newWorker.photo || null,
+        rating: 5.0,
+        reviews_count: 0,
+        is_available: true,
+        is_verified: true,
+      } as never);
+    
+    if (error) {
+      console.error('Error adding worker:', error);
+      toast.error('Failed to add worker');
+      return;
+    }
+    
     toast.success('Worker added successfully');
     setNewWorker({ name: '', phone: '', email: '', service: '', area: '', experience: '', price: '', photo: '' });
     setShowAddWorker(false);
     loadData();
   };
 
-  const handleUpdateWorker = (id: string, updates: Partial<Worker>) => {
-    updateWorker(id, updates);
+  const handleUpdateWorker = async (id: string, updates: Partial<SupabaseWorker>) => {
+    const { error } = await supabase
+      .from('workers' as never)
+      .update(updates as never)
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error updating worker:', error);
+      toast.error('Failed to update worker');
+      return;
+    }
+    
     toast.success('Worker updated');
     setEditingWorker(null);
     loadData();
   };
 
-  const handleDeleteWorker = (id: string) => {
-    if (confirm('Are you sure you want to delete this worker?')) {
-      deleteWorker(id);
-      toast.success('Worker deleted');
-      loadData();
+  const handleDeleteWorker = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this worker?')) return;
+    
+    const { error } = await supabase
+      .from('workers' as never)
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error deleting worker:', error);
+      toast.error('Failed to delete worker');
+      return;
     }
+    
+    toast.success('Worker deleted');
+    loadData();
   };
 
-  const handleUpdateService = (id: string, updates: Partial<Service>) => {
-    updateService(id, updates);
+  const handleUpdateService = async (id: string, updates: Partial<SupabaseService>) => {
+    const { error } = await supabase
+      .from('services' as never)
+      .update(updates as never)
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error updating service:', error);
+      toast.error('Failed to update service');
+      return;
+    }
+    
     toast.success('Service updated');
     setEditingService(null);
     loadData();
@@ -150,24 +247,31 @@ const AdminDashboard = () => {
       return;
     }
 
-    // If approved, create worker in localStorage (until workers are migrated to Supabase)
+    // If approved, create worker in Supabase
     if (status === 'approved') {
       const app = applications.find(a => a.id === id);
       if (app) {
-        addWorker({
-          name: app.name,
-          phone: app.phone,
-          email: app.email,
-          service: app.service,
-          area: app.area,
-          experience: app.experience,
-          price: app.expected_price,
-          photo: app.photo || '',
-          rating: 5.0,
-          reviews: 0,
-          available: true,
-          verified: true,
-        });
+        const { error: workerError } = await supabase
+          .from('workers' as never)
+          .insert({
+            name: app.name,
+            phone: app.phone,
+            email: app.email || null,
+            service: app.service,
+            area: app.area,
+            experience: app.experience,
+            price: app.expected_price,
+            photo: app.photo || null,
+            rating: 5.0,
+            reviews_count: 0,
+            is_available: true,
+            is_verified: true,
+          } as never);
+        
+        if (workerError) {
+          console.error('Error creating worker from application:', workerError);
+          toast.error('Application approved but failed to create worker profile');
+        }
       }
     }
     
@@ -178,6 +282,7 @@ const AdminDashboard = () => {
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, isNew: boolean = false) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Note: For production, this should upload to Supabase Storage instead of base64
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
@@ -197,6 +302,17 @@ const AdminDashboard = () => {
   };
 
   if (!isAdmin) return null;
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading admin dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -286,7 +402,6 @@ const AdminDashboard = () => {
                       value={newWorker.email}
                       onChange={(e) => setNewWorker({ ...newWorker, email: e.target.value })}
                       className="bg-secondary"
-                      required
                     />
                   </div>
                   <div className="space-y-2">
@@ -360,80 +475,86 @@ const AdminDashboard = () => {
 
             {/* Workers List */}
             <div className="grid gap-4">
-              {workers.map(worker => (
-                <div key={worker.id} className="glass rounded-2xl p-6 card-3d">
-                  {editingWorker?.id === worker.id ? (
-                    <div className="grid md:grid-cols-4 gap-4">
-                      <Input
-                        value={editingWorker.name}
-                        onChange={(e) => setEditingWorker({ ...editingWorker, name: e.target.value })}
-                        className="bg-secondary"
-                      />
-                      <Input
-                        value={editingWorker.phone}
-                        onChange={(e) => setEditingWorker({ ...editingWorker, phone: e.target.value })}
-                        className="bg-secondary"
-                      />
-                      <Input
-                        value={editingWorker.price}
-                        onChange={(e) => setEditingWorker({ ...editingWorker, price: e.target.value })}
-                        className="bg-secondary"
-                      />
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => handleUpdateWorker(worker.id, editingWorker)}>
-                          <Check className="w-4 h-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => setEditingWorker(null)}>
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center overflow-hidden">
-                          {worker.photo ? (
-                            <img src={worker.photo} alt={worker.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-2xl">👤</span>
-                          )}
+              {workers.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No workers yet. Add your first worker above.
+                </div>
+              ) : (
+                workers.map(worker => (
+                  <div key={worker.id} className="glass rounded-2xl p-6 card-3d">
+                    {editingWorker?.id === worker.id ? (
+                      <div className="grid md:grid-cols-4 gap-4">
+                        <Input
+                          value={editingWorker.name}
+                          onChange={(e) => setEditingWorker({ ...editingWorker, name: e.target.value })}
+                          className="bg-secondary"
+                        />
+                        <Input
+                          value={editingWorker.phone}
+                          onChange={(e) => setEditingWorker({ ...editingWorker, phone: e.target.value })}
+                          className="bg-secondary"
+                        />
+                        <Input
+                          value={editingWorker.price}
+                          onChange={(e) => setEditingWorker({ ...editingWorker, price: e.target.value })}
+                          className="bg-secondary"
+                        />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => handleUpdateWorker(worker.id, editingWorker)}>
+                            <Check className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setEditingWorker(null)}>
+                            <X className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">{worker.name}</h3>
-                          <p className="text-sm text-primary">{worker.service}</p>
-                          <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Phone className="w-3 h-3" />
-                              {worker.phone}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {worker.area}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <DollarSign className="w-3 h-3" />
-                              {worker.price}
-                            </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center overflow-hidden">
+                            {worker.photo ? (
+                              <img src={worker.photo} alt={worker.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-2xl">👤</span>
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-foreground">{worker.name}</h3>
+                            <p className="text-sm text-primary">{worker.service}</p>
+                            <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Phone className="w-3 h-3" />
+                                {worker.phone}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {worker.area}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <DollarSign className="w-3 h-3" />
+                                {worker.price}
+                              </span>
+                            </div>
                           </div>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            worker.is_verified ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
+                          }`}>
+                            {worker.is_verified ? 'Verified' : 'Pending'}
+                          </span>
+                          <Button size="icon" variant="ghost" onClick={() => setEditingWorker(worker)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => handleDeleteWorker(worker.id)}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          worker.verified ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
-                        }`}>
-                          {worker.verified ? 'Verified' : 'Pending'}
-                        </span>
-                        <Button size="icon" variant="ghost" onClick={() => setEditingWorker(worker)}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => handleDeleteWorker(worker.id)}>
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </TabsContent>
 
@@ -451,10 +572,11 @@ const AdminDashboard = () => {
                         className="bg-secondary"
                       />
                       <Input
-                        value={editingService.basePrice}
-                        onChange={(e) => setEditingService({ ...editingService, basePrice: e.target.value })}
+                        value={editingService.base_price}
+                        onChange={(e) => setEditingService({ ...editingService, base_price: Number(e.target.value) })}
                         className="bg-secondary"
                         placeholder="Base Price"
+                        type="number"
                       />
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => handleUpdateService(service.id, editingService)}>
@@ -478,8 +600,8 @@ const AdminDashboard = () => {
                       <h3 className="text-lg font-semibold text-foreground mb-1">{service.name}</h3>
                       <p className="text-sm text-muted-foreground mb-3">{service.description}</p>
                       <div className="flex items-center justify-between">
-                        <span className="text-lg font-bold text-primary">{service.basePrice}</span>
-                        <span className="text-xs text-muted-foreground">{service.count} workers</span>
+                        <span className="text-lg font-bold text-primary">₹{service.base_price} {service.price_unit}</span>
+                        <span className="text-xs text-muted-foreground">{service.verified_workers_count} workers</span>
                       </div>
                     </>
                   )}

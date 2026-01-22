@@ -38,6 +38,42 @@ export type Database = {
         }
         Relationships: []
       }
+      services: {
+        Row: {
+          base_price: number
+          created_at: string
+          description: string | null
+          emoji: string | null
+          id: string
+          name: string
+          price_unit: string
+          updated_at: string
+          verified_workers_count: number
+        }
+        Insert: {
+          base_price?: number
+          created_at?: string
+          description?: string | null
+          emoji?: string | null
+          id?: string
+          name: string
+          price_unit?: string
+          updated_at?: string
+          verified_workers_count?: number
+        }
+        Update: {
+          base_price?: number
+          created_at?: string
+          description?: string | null
+          emoji?: string | null
+          id?: string
+          name?: string
+          price_unit?: string
+          updated_at?: string
+          verified_workers_count?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -107,6 +143,60 @@ export type Database = {
           status?: Database["public"]["Enums"]["application_status"]
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      workers: {
+        Row: {
+          area: string
+          created_at: string
+          email: string | null
+          experience: string
+          id: string
+          is_available: boolean
+          is_verified: boolean
+          name: string
+          phone: string
+          photo: string | null
+          price: string
+          rating: number
+          reviews_count: number
+          service: string
+          updated_at: string
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          email?: string | null
+          experience: string
+          id?: string
+          is_available?: boolean
+          is_verified?: boolean
+          name: string
+          phone: string
+          photo?: string | null
+          price: string
+          rating?: number
+          reviews_count?: number
+          service: string
+          updated_at?: string
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          email?: string | null
+          experience?: string
+          id?: string
+          is_available?: boolean
+          is_verified?: boolean
+          name?: string
+          phone?: string
+          photo?: string | null
+          price?: string
+          rating?: number
+          reviews_count?: number
+          service?: string
+          updated_at?: string
         }
         Relationships: []
       }
