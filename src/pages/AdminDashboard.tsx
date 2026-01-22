@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSupabaseAuthContext } from '@/contexts/SupabaseAuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   getWorkers, 
   addWorker, 
@@ -12,11 +13,8 @@ import {
   deleteWorker, 
   getServices, 
   updateService, 
-  getApplications, 
-  updateApplicationStatus,
   Worker,
   Service,
-  WorkerApplication
 } from '@/lib/storage';
 import { toast } from 'sonner';
 import { 
@@ -37,12 +35,30 @@ import {
   Camera
 } from 'lucide-react';
 
+// Type for Supabase worker applications
+interface SupabaseWorkerApplication {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  service: string;
+  area: string;
+  experience: string;
+  expected_price: string;
+  photo: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  updated_at: string;
+  user_id: string | null;
+  admin_notes: string | null;
+}
+
 const AdminDashboard = () => {
   const { profile, isAdmin, signOut } = useSupabaseAuthContext();
   const navigate = useNavigate();
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-  const [applications, setApplications] = useState<WorkerApplication[]>([]);
+  const [applications, setApplications] = useState<SupabaseWorkerApplication[]>([]);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [showAddWorker, setShowAddWorker] = useState(false);
@@ -67,10 +83,22 @@ const AdminDashboard = () => {
     loadData();
   }, [isAdmin, navigate]);
 
-  const loadData = () => {
+  const loadData = async () => {
     setWorkers(getWorkers());
     setServices(getServices());
-    setApplications(getApplications());
+    
+    // Fetch applications from Supabase
+    const { data: apps, error } = await supabase
+      .from('worker_applications')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching applications:', error);
+      toast.error('Failed to load applications');
+    } else if (apps) {
+      setApplications(apps);
+    }
   };
 
   const handleAddWorker = (e: React.FormEvent) => {
@@ -110,8 +138,39 @@ const AdminDashboard = () => {
     loadData();
   };
 
-  const handleApplicationStatus = (id: string, status: 'approved' | 'rejected') => {
-    updateApplicationStatus(id, status);
+  const handleApplicationStatus = async (id: string, status: 'approved' | 'rejected') => {
+    const { error } = await supabase
+      .from('worker_applications')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error updating application:', error);
+      toast.error('Failed to update application');
+      return;
+    }
+
+    // If approved, create worker in localStorage (until workers are migrated to Supabase)
+    if (status === 'approved') {
+      const app = applications.find(a => a.id === id);
+      if (app) {
+        addWorker({
+          name: app.name,
+          phone: app.phone,
+          email: app.email,
+          service: app.service,
+          area: app.area,
+          experience: app.experience,
+          price: app.expected_price,
+          photo: app.photo || '',
+          rating: 5.0,
+          reviews: 0,
+          available: true,
+          verified: true,
+        });
+      }
+    }
+    
     toast.success(`Application ${status}`);
     loadData();
   };

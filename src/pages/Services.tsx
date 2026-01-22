@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getServices, getWorkersByService, Service, Worker, createBooking } from '@/lib/storage';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useSupabaseAuthContext } from '@/contexts/SupabaseAuthContext';
 import { toast } from 'sonner';
 import { 
   ArrowLeft, 
@@ -20,7 +20,7 @@ import LiveTrackingMap from '@/components/LiveTrackingMap';
 const Services = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, isAuthenticated } = useAuthContext();
+  const { user, isAuthenticated, profile } = useSupabaseAuthContext();
   const [services] = useState<Service[]>(getServices());
   const [selectedService, setSelectedService] = useState<string | null>(
     searchParams.get('service') || null
@@ -104,7 +104,7 @@ const Services = () => {
             </Link>
           </div>
           {isAuthenticated ? (
-            <span className="text-sm text-muted-foreground">Hi, {user?.name}</span>
+            <span className="text-sm text-muted-foreground">Hi, {profile?.name || user?.email}</span>
           ) : (
             <Button variant="outline" size="sm" onClick={() => navigate('/login')}>
               Login
