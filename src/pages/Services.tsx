@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { getServices, getWorkersByService, Service, Worker, createBooking } from '@/lib/storage';
+import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseAuthContext } from '@/contexts/SupabaseAuthContext';
 import { toast } from 'sonner';
 import { 
@@ -17,40 +17,104 @@ import {
 import { Input } from '@/components/ui/input';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 
+// Supabase types
+interface SupabaseService {
+  id: string;
+  name: string;
+  description: string | null;
+  base_price: number;
+  price_unit: string;
+  emoji: string | null;
+  verified_workers_count: number;
+}
+
+interface SupabaseWorker {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  service: string;
+  area: string;
+  experience: string;
+  price: string;
+  photo: string | null;
+  rating: number;
+  reviews_count: number;
+  is_verified: boolean;
+  is_available: boolean;
+}
+
 const Services = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, isAuthenticated, profile } = useSupabaseAuthContext();
-  const [services] = useState<Service[]>(getServices());
+  const [services, setServices] = useState<SupabaseService[]>([]);
   const [selectedService, setSelectedService] = useState<string | null>(
     searchParams.get('service') || null
   );
-  const [workers, setWorkers] = useState<Worker[]>([]);
-  const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
+  const [workers, setWorkers] = useState<SupabaseWorker[]>([]);
+  const [selectedWorker, setSelectedWorker] = useState<SupabaseWorker | null>(null);
   const [showBookingConfirm, setShowBookingConfirm] = useState(false);
   const [showTracking, setShowTracking] = useState(false);
-  const [bookedWorker, setBookedWorker] = useState<Worker | null>(null);
+  const [bookedWorker, setBookedWorker] = useState<SupabaseWorker | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
 
+  // Fetch services from Supabase
   useEffect(() => {
-    if (selectedService) {
-      setWorkers(getWorkersByService(selectedService));
-      setSearchParams({ service: selectedService });
-    } else {
-      setWorkers([]);
-      setSearchParams({});
-    }
+    const fetchServices = async () => {
+      // Use rpc or raw query since tables not yet in generated types
+      const { data, error } = await supabase
+        .from('services' as never)
+        .select('*')
+        .order('name');
+      
+      if (error) {
+        console.error('Error fetching services:', error);
+        toast.error('Failed to load services');
+      } else {
+        setServices((data as unknown as SupabaseService[]) || []);
+      }
+      setLoading(false);
+    };
+    fetchServices();
+  }, []);
+
+  // Fetch workers when service is selected
+  useEffect(() => {
+    const fetchWorkers = async () => {
+      if (selectedService) {
+        const { data, error } = await supabase
+          .from('workers' as never)
+          .select('*')
+          .eq('service', selectedService)
+          .eq('is_verified', true)
+          .order('rating', { ascending: false });
+        
+        if (error) {
+          console.error('Error fetching workers:', error);
+          toast.error('Failed to load workers');
+        } else {
+          setWorkers((data as unknown as SupabaseWorker[]) || []);
+        }
+        setSearchParams({ service: selectedService });
+      } else {
+        setWorkers([]);
+        setSearchParams({});
+      }
+    };
+    fetchWorkers();
   }, [selectedService, setSearchParams]);
 
   const filteredServices = useMemo(() => {
     if (!searchTerm) return services;
     return services.filter(s => 
       s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.description.toLowerCase().includes(searchTerm.toLowerCase())
+      (s.description?.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [services, searchTerm]);
 
-  const handleBookWorker = (worker: Worker) => {
+  const handleBookWorker = (worker: SupabaseWorker) => {
     if (!isAuthenticated) {
       toast.error('Please login to book a service');
       navigate('/login');
@@ -63,23 +127,23 @@ const Services = () => {
   const confirmBooking = () => {
     if (!selectedWorker || !user) return;
 
-    createBooking({
-      userId: user.id,
-      workerId: selectedWorker.id,
-      workerName: selectedWorker.name,
-      workerPhone: selectedWorker.phone,
-      service: selectedWorker.service,
-      status: 'confirmed',
-      scheduledAt: new Date().toISOString(),
-      workerLocation: { lat: 12.9716, lng: 77.5946 },
-      estimatedArrival: 15,
-    });
-
+    // TODO: Create booking in Supabase when bookings table is created
     setShowBookingConfirm(false);
     setBookedWorker(selectedWorker);
     setShowTracking(true);
     toast.success('Booking confirmed! Track your worker on the map.');
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading services...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -254,9 +318,9 @@ const Services = () => {
                     {service.description}
                   </p>
                   <div className="flex items-center justify-between">
-                    <span className="text-primary font-semibold">{service.basePrice}</span>
+                    <span className="text-primary font-semibold">₹{service.base_price} {service.price_unit}</span>
                     <span className="text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
-                      {service.count}+ pros
+                      {service.verified_workers_count}+ pros
                     </span>
                   </div>
                 </button>
@@ -317,12 +381,12 @@ const Services = () => {
                       </div>
                       <span
                         className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                          worker.available
+                          worker.is_available
                             ? "bg-primary/10 text-primary"
                             : "bg-muted text-muted-foreground"
                         }`}
                       >
-                        {worker.available ? "Available" : "Busy"}
+                        {worker.is_available ? "Available" : "Busy"}
                       </span>
                     </div>
 
@@ -331,7 +395,7 @@ const Services = () => {
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 text-accent fill-accent" />
                         <span className="font-semibold text-foreground">{worker.rating}</span>
-                        <span className="text-muted-foreground text-sm">({worker.reviews})</span>
+                        <span className="text-muted-foreground text-sm">({worker.reviews_count})</span>
                       </div>
                       <div className="flex items-center gap-1 text-muted-foreground text-sm">
                         <Clock className="w-4 h-4" />
@@ -352,7 +416,7 @@ const Services = () => {
                         variant="default" 
                         size="sm"
                         onClick={() => handleBookWorker(worker)}
-                        disabled={!worker.available}
+                        disabled={!worker.is_available}
                       >
                         Book Now
                       </Button>
