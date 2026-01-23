@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut, Calendar } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSupabaseAuthContext } from "@/contexts/SupabaseAuthContext";
 
@@ -49,6 +49,10 @@ const Header = () => {
           {isAuthenticated ? (
             <>
               <span className="text-sm text-muted-foreground">Hi, {profile?.name || 'User'}</span>
+              <Button variant="outline" size="sm" onClick={() => navigate('/my-bookings')}>
+                <Calendar className="w-4 h-4 mr-2" />
+                My Bookings
+              </Button>
               {isAdmin && (
                 <Button variant="outline" size="sm" onClick={() => navigate('/admin')}>
                   Admin
@@ -96,6 +100,10 @@ const Header = () => {
             <div className="flex flex-col gap-2 pt-4 border-t border-border mt-2">
               {isAuthenticated ? (
                 <>
+                  <Button variant="outline" className="w-full" onClick={() => { navigate('/my-bookings'); setMobileMenuOpen(false); }}>
+                    <Calendar className="w-4 h-4 mr-2" />
+                    My Bookings
+                  </Button>
                   {isAdmin && (
                     <Button variant="outline" className="w-full" onClick={() => { navigate('/admin'); setMobileMenuOpen(false); }}>
                       Admin Dashboard

@@ -11,6 +11,7 @@ import Register from "./pages/Register";
 import AdminDashboard from "./pages/AdminDashboard";
 import JoinAsWorker from "./pages/JoinAsWorker";
 import Services from "./pages/Services";
+import MyBookings from "./pages/MyBookings";
 import ScrollToHash from "@/components/routing/ScrollToHash";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/join-as-worker" element={<JoinAsWorker />} />
             <Route path="/services" element={<Services />} />
+            <Route path="/my-bookings" element={<MyBookings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
