@@ -28,11 +28,10 @@ interface SupabaseService {
   verified_workers_count: number;
 }
 
-interface SupabaseWorker {
+// Public worker data (from workers_public view - no contact info)
+interface SupabaseWorkerPublic {
   id: string;
   name: string;
-  phone: string;
-  email: string | null;
   service: string;
   area: string;
   experience: string;
@@ -44,6 +43,12 @@ interface SupabaseWorker {
   is_available: boolean;
 }
 
+// Full worker data (only accessible to authenticated users after booking)
+interface SupabaseWorkerFull extends SupabaseWorkerPublic {
+  phone: string;
+  email: string | null;
+}
+
 const Services = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -52,11 +57,11 @@ const Services = () => {
   const [selectedService, setSelectedService] = useState<string | null>(
     searchParams.get('service') || null
   );
-  const [workers, setWorkers] = useState<SupabaseWorker[]>([]);
-  const [selectedWorker, setSelectedWorker] = useState<SupabaseWorker | null>(null);
+  const [workers, setWorkers] = useState<SupabaseWorkerPublic[]>([]);
+  const [selectedWorker, setSelectedWorker] = useState<SupabaseWorkerPublic | null>(null);
   const [showBookingConfirm, setShowBookingConfirm] = useState(false);
   const [showTracking, setShowTracking] = useState(false);
-  const [bookedWorker, setBookedWorker] = useState<SupabaseWorker | null>(null);
+  const [bookedWorker, setBookedWorker] = useState<SupabaseWorkerFull | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -80,22 +85,22 @@ const Services = () => {
     fetchServices();
   }, []);
 
-  // Fetch workers when service is selected
+  // Fetch workers from public view when service is selected (no contact info)
   useEffect(() => {
     const fetchWorkers = async () => {
       if (selectedService) {
+        // Use the workers_public view which doesn't expose contact info
         const { data, error } = await supabase
-          .from('workers' as never)
+          .from('workers_public' as never)
           .select('*')
           .eq('service', selectedService)
-          .eq('is_verified', true)
           .order('rating', { ascending: false });
         
         if (error) {
           console.error('Error fetching workers:', error);
           toast.error('Failed to load workers');
         } else {
-          setWorkers((data as unknown as SupabaseWorker[]) || []);
+          setWorkers((data as unknown as SupabaseWorkerPublic[]) || []);
         }
         setSearchParams({ service: selectedService });
       } else {
@@ -114,7 +119,7 @@ const Services = () => {
     );
   }, [services, searchTerm]);
 
-  const handleBookWorker = (worker: SupabaseWorker) => {
+  const handleBookWorker = (worker: SupabaseWorkerPublic) => {
     if (!isAuthenticated) {
       toast.error('Please login to book a service');
       navigate('/login');
@@ -124,12 +129,25 @@ const Services = () => {
     setShowBookingConfirm(true);
   };
 
-  const confirmBooking = () => {
+  const confirmBooking = async () => {
     if (!selectedWorker || !user) return;
+
+    // Fetch full worker data with contact info (authenticated users only)
+    const { data: fullWorkerData, error } = await supabase
+      .from('workers' as never)
+      .select('*')
+      .eq('id', selectedWorker.id)
+      .single();
+
+    if (error || !fullWorkerData) {
+      console.error('Error fetching worker contact info:', error);
+      toast.error('Failed to complete booking');
+      return;
+    }
 
     // TODO: Create booking in Supabase when bookings table is created
     setShowBookingConfirm(false);
-    setBookedWorker(selectedWorker);
+    setBookedWorker(fullWorkerData as unknown as SupabaseWorkerFull);
     setShowTracking(true);
     toast.success('Booking confirmed! Track your worker on the map.');
   };
