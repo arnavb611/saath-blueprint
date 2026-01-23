@@ -202,7 +202,54 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      workers_public: {
+        Row: {
+          area: string | null
+          created_at: string | null
+          experience: string | null
+          id: string | null
+          is_available: boolean | null
+          is_verified: boolean | null
+          name: string | null
+          photo: string | null
+          price: string | null
+          rating: number | null
+          reviews_count: number | null
+          service: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          area?: string | null
+          created_at?: string | null
+          experience?: string | null
+          id?: string | null
+          is_available?: boolean | null
+          is_verified?: boolean | null
+          name?: string | null
+          photo?: string | null
+          price?: string | null
+          rating?: number | null
+          reviews_count?: number | null
+          service?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          area?: string | null
+          created_at?: string | null
+          experience?: string | null
+          id?: string | null
+          is_available?: boolean | null
+          is_verified?: boolean | null
+          name?: string | null
+          photo?: string | null
+          price?: string | null
+          rating?: number | null
+          reviews_count?: number | null
+          service?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
