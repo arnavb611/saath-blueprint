@@ -132,6 +132,23 @@ const Services = () => {
   const confirmBooking = async () => {
     if (!selectedWorker || !user) return;
 
+    // Create booking record in Supabase
+    const { error: bookingError } = await supabase
+      .from('bookings' as never)
+      .insert({
+        user_id: user.id,
+        worker_id: selectedWorker.id,
+        service: selectedWorker.service,
+        status: 'confirmed',
+        scheduled_at: new Date().toISOString(),
+      } as never);
+
+    if (bookingError) {
+      console.error('Error creating booking:', bookingError);
+      toast.error('Failed to create booking. Please try again.');
+      return;
+    }
+
     // Fetch full worker data with contact info (authenticated users only)
     const { data: fullWorkerData, error } = await supabase
       .from('workers' as never)
@@ -141,11 +158,10 @@ const Services = () => {
 
     if (error || !fullWorkerData) {
       console.error('Error fetching worker contact info:', error);
-      toast.error('Failed to complete booking');
+      toast.error('Booking created but failed to load worker details');
       return;
     }
 
-    // TODO: Create booking in Supabase when bookings table is created
     setShowBookingConfirm(false);
     setBookedWorker(fullWorkerData as unknown as SupabaseWorkerFull);
     setShowTracking(true);
