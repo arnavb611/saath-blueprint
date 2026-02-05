@@ -7,15 +7,15 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft, 
   ArrowRight, 
-  Star, 
-  MapPin, 
-  Clock, 
-  Phone, 
   X,
   Search
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
+import ServiceFiltersComponent, { ServiceFilters } from '@/components/services/ServiceFilters';
+import WorkerCard, { WorkerPublic } from '@/components/workers/WorkerCard';
+import WorkerProfile from '@/components/workers/WorkerProfile';
+import BookingScheduler from '@/components/booking/BookingScheduler';
 
 // Supabase types
 interface SupabaseService {
@@ -28,23 +28,8 @@ interface SupabaseService {
   verified_workers_count: number;
 }
 
-// Public worker data (from workers_public view - no contact info)
-interface SupabaseWorkerPublic {
-  id: string;
-  name: string;
-  service: string;
-  area: string;
-  experience: string;
-  price: string;
-  photo: string | null;
-  rating: number;
-  reviews_count: number;
-  is_verified: boolean;
-  is_available: boolean;
-}
-
 // Full worker data (only accessible to authenticated users after booking)
-interface SupabaseWorkerFull extends SupabaseWorkerPublic {
+interface SupabaseWorkerFull extends WorkerPublic {
   phone: string;
   email: string | null;
 }
@@ -57,20 +42,30 @@ const Services = () => {
   const [selectedService, setSelectedService] = useState<string | null>(
     searchParams.get('service') || null
   );
-  const [workers, setWorkers] = useState<SupabaseWorkerPublic[]>([]);
-  const [selectedWorker, setSelectedWorker] = useState<SupabaseWorkerPublic | null>(null);
-  const [showBookingConfirm, setShowBookingConfirm] = useState(false);
+  const [workers, setWorkers] = useState<WorkerPublic[]>([]);
+  const [selectedWorker, setSelectedWorker] = useState<WorkerPublic | null>(null);
+  const [showWorkerProfile, setShowWorkerProfile] = useState(false);
+  const [showBookingScheduler, setShowBookingScheduler] = useState(false);
   const [showTracking, setShowTracking] = useState(false);
   const [bookedWorker, setBookedWorker] = useState<SupabaseWorkerFull | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [locations, setLocations] = useState<string[]>([]);
+  const [filters, setFilters] = useState<ServiceFilters>({
+    location: '',
+    minPrice: 0,
+    maxPrice: 5000,
+    minRating: 0,
+    availability: 'all',
+    sortBy: 'rating',
+  });
 
   // Fetch services from Supabase
   useEffect(() => {
     const fetchServices = async () => {
-      // Use rpc or raw query since tables not yet in generated types
       const { data, error } = await supabase
-        .from('services' as never)
+        .from('services')
         .select('*')
         .order('name');
       
@@ -78,38 +73,93 @@ const Services = () => {
         console.error('Error fetching services:', error);
         toast.error('Failed to load services');
       } else {
-        setServices((data as unknown as SupabaseService[]) || []);
+        setServices((data as SupabaseService[]) || []);
       }
       setLoading(false);
     };
     fetchServices();
   }, []);
 
-  // Fetch workers from public view when service is selected (no contact info)
+  // Fetch workers when service is selected
   useEffect(() => {
     const fetchWorkers = async () => {
       if (selectedService) {
-        // Use the workers_public view which doesn't expose contact info
         const { data, error } = await supabase
-          .from('workers_public' as never)
+          .from('workers_public')
           .select('*')
-          .eq('service', selectedService)
-          .order('rating', { ascending: false });
+          .eq('service', selectedService);
         
         if (error) {
           console.error('Error fetching workers:', error);
           toast.error('Failed to load workers');
         } else {
-          setWorkers((data as unknown as SupabaseWorkerPublic[]) || []);
+          const workersData = (data as WorkerPublic[]) || [];
+          setWorkers(workersData);
+          
+          // Extract unique locations
+          const uniqueLocations = [...new Set(workersData.map(w => w.area))].filter(Boolean);
+          setLocations(uniqueLocations);
         }
         setSearchParams({ service: selectedService });
       } else {
         setWorkers([]);
+        setLocations([]);
         setSearchParams({});
       }
     };
     fetchWorkers();
   }, [selectedService, setSearchParams]);
+
+  // Filter and sort workers
+  const filteredWorkers = useMemo(() => {
+    let result = [...workers];
+
+    // Apply filters
+    if (filters.location) {
+      result = result.filter(w => w.area === filters.location);
+    }
+    if (filters.minRating > 0) {
+      result = result.filter(w => w.rating >= filters.minRating);
+    }
+    if (filters.availability !== 'all') {
+      result = result.filter(w => 
+        filters.availability === 'available' ? w.is_available : !w.is_available
+      );
+    }
+    // Price filter - parse price string
+    result = result.filter(w => {
+      const priceMatch = w.price.match(/₹?(\d+)/);
+      if (!priceMatch) return true;
+      const price = parseInt(priceMatch[1]);
+      return price >= filters.minPrice && price <= filters.maxPrice;
+    });
+
+    // Sort
+    switch (filters.sortBy) {
+      case 'rating':
+        result.sort((a, b) => b.rating - a.rating);
+        break;
+      case 'price_low':
+        result.sort((a, b) => {
+          const priceA = parseInt(a.price.match(/₹?(\d+)/)?.[1] || '0');
+          const priceB = parseInt(b.price.match(/₹?(\d+)/)?.[1] || '0');
+          return priceA - priceB;
+        });
+        break;
+      case 'price_high':
+        result.sort((a, b) => {
+          const priceA = parseInt(a.price.match(/₹?(\d+)/)?.[1] || '0');
+          const priceB = parseInt(b.price.match(/₹?(\d+)/)?.[1] || '0');
+          return priceB - priceA;
+        });
+        break;
+      case 'reviews':
+        result.sort((a, b) => b.reviews_count - a.reviews_count);
+        break;
+    }
+
+    return result;
+  }, [workers, filters]);
 
   const filteredServices = useMemo(() => {
     if (!searchTerm) return services;
@@ -119,39 +169,48 @@ const Services = () => {
     );
   }, [services, searchTerm]);
 
-  const handleBookWorker = (worker: SupabaseWorkerPublic) => {
+  const handleBookWorker = (worker: WorkerPublic) => {
     if (!isAuthenticated) {
       toast.error('Please login to book a service');
       navigate('/login');
       return;
     }
     setSelectedWorker(worker);
-    setShowBookingConfirm(true);
+    setShowWorkerProfile(false);
+    setShowBookingScheduler(true);
   };
 
-  const confirmBooking = async () => {
+  const handleViewProfile = (worker: WorkerPublic) => {
+    setSelectedWorker(worker);
+    setShowWorkerProfile(true);
+  };
+
+  const confirmBooking = async (scheduledAt: Date) => {
     if (!selectedWorker || !user) return;
 
-    // Create booking record in Supabase
+    setBookingLoading(true);
+
+    // Create booking record
     const { error: bookingError } = await supabase
-      .from('bookings' as never)
+      .from('bookings')
       .insert({
         user_id: user.id,
         worker_id: selectedWorker.id,
         service: selectedWorker.service,
         status: 'confirmed',
-        scheduled_at: new Date().toISOString(),
-      } as never);
+        scheduled_at: scheduledAt.toISOString(),
+      });
 
     if (bookingError) {
       console.error('Error creating booking:', bookingError);
       toast.error('Failed to create booking. Please try again.');
+      setBookingLoading(false);
       return;
     }
 
-    // Fetch full worker data with contact info (authenticated users only)
+    // Fetch full worker data with contact info
     const { data: fullWorkerData, error } = await supabase
-      .from('workers' as never)
+      .from('workers')
       .select('*')
       .eq('id', selectedWorker.id)
       .single();
@@ -159,12 +218,14 @@ const Services = () => {
     if (error || !fullWorkerData) {
       console.error('Error fetching worker contact info:', error);
       toast.error('Booking created but failed to load worker details');
+      setBookingLoading(false);
       return;
     }
 
-    setShowBookingConfirm(false);
-    setBookedWorker(fullWorkerData as unknown as SupabaseWorkerFull);
+    setShowBookingScheduler(false);
+    setBookedWorker(fullWorkerData as SupabaseWorkerFull);
     setShowTracking(true);
+    setBookingLoading(false);
     toast.success('Booking confirmed! Track your worker on the map.');
   };
 
@@ -240,7 +301,6 @@ const Services = () => {
                   <p className="text-sm text-primary">{bookedWorker.service}</p>
                 </div>
                 <a href={`tel:${bookedWorker.phone}`} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors">
-                  <Phone className="w-4 h-4" />
                   Call
                 </a>
               </div>
@@ -272,37 +332,26 @@ const Services = () => {
           </div>
         )}
 
-        {/* Booking Confirmation Modal */}
-        {showBookingConfirm && selectedWorker && (
-          <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="w-full max-w-md glass rounded-3xl p-6 shadow-3d animate-scale-in">
-              <h2 className="text-xl font-bold text-foreground mb-4">Confirm Booking</h2>
-              
-              <div className="flex items-center gap-4 p-4 bg-secondary rounded-xl mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-card flex items-center justify-center overflow-hidden">
-                  {selectedWorker.photo ? (
-                    <img src={selectedWorker.photo} alt={selectedWorker.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-2xl">👤</span>
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">{selectedWorker.name}</h3>
-                  <p className="text-sm text-primary">{selectedWorker.service}</p>
-                  <p className="text-sm text-muted-foreground">{selectedWorker.price}</p>
-                </div>
-              </div>
+        {/* Worker Profile Modal */}
+        {showWorkerProfile && selectedWorker && (
+          <WorkerProfile
+            worker={selectedWorker}
+            onClose={() => setShowWorkerProfile(false)}
+            onBook={() => {
+              setShowWorkerProfile(false);
+              handleBookWorker(selectedWorker);
+            }}
+          />
+        )}
 
-              <div className="flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setShowBookingConfirm(false)}>
-                  Cancel
-                </Button>
-                <Button variant="hero" className="flex-1" onClick={confirmBooking}>
-                  Confirm Booking
-                </Button>
-              </div>
-            </div>
-          </div>
+        {/* Booking Scheduler Modal */}
+        {showBookingScheduler && selectedWorker && (
+          <BookingScheduler
+            worker={selectedWorker}
+            onConfirm={confirmBooking}
+            onCancel={() => setShowBookingScheduler(false)}
+            isLoading={bookingLoading}
+          />
         )}
 
         {!selectedService ? (
@@ -364,98 +413,56 @@ const Services = () => {
         ) : (
           /* Workers List */
           <div className="animate-fade-in">
-            <div className="mb-8">
-              <button 
-                onClick={() => setSelectedService(null)}
-                className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to services
-              </button>
-              <h1 className="text-3xl font-bold text-foreground mb-2">
-                {selectedService} <span className="text-gradient">Professionals</span>
-              </h1>
-              <p className="text-muted-foreground">
-                {workers.length} verified professionals available
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+              <div>
+                <button 
+                  onClick={() => setSelectedService(null)}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to services
+                </button>
+                <h1 className="text-3xl font-bold text-foreground">
+                  {selectedService} <span className="text-gradient">Professionals</span>
+                </h1>
+                <p className="text-muted-foreground">
+                  {filteredWorkers.length} professionals available
+                </p>
+              </div>
+              <ServiceFiltersComponent
+                filters={filters}
+                onFiltersChange={setFilters}
+                locations={locations}
+              />
             </div>
 
-            {workers.length === 0 ? (
+            {filteredWorkers.length === 0 ? (
               <div className="text-center py-16">
                 <div className="text-6xl mb-4">👷</div>
-                <h3 className="text-xl font-semibold text-foreground mb-2">No workers available</h3>
+                <h3 className="text-xl font-semibold text-foreground mb-2">No workers found</h3>
                 <p className="text-muted-foreground mb-6">
-                  We're adding more professionals to this category
+                  Try adjusting your filters or check back later
                 </p>
-                <Button variant="outline" onClick={() => navigate('/join-as-worker')}>
-                  Become a Professional
+                <Button variant="outline" onClick={() => setFilters({
+                  location: '',
+                  minPrice: 0,
+                  maxPrice: 5000,
+                  minRating: 0,
+                  availability: 'all',
+                  sortBy: 'rating',
+                })}>
+                  Reset Filters
                 </Button>
               </div>
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {workers.map(worker => (
-                  <div
+                {filteredWorkers.map(worker => (
+                  <WorkerCard
                     key={worker.id}
-                    className="bg-card rounded-2xl p-6 shadow-card hover:shadow-medium transition-all duration-300 border border-transparent hover:border-primary/20 card-3d"
-                  >
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center text-2xl overflow-hidden">
-                          {worker.photo ? (
-                            <img src={worker.photo} alt={worker.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <span>👤</span>
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">{worker.name}</h3>
-                          <p className="text-sm text-primary">{worker.service}</p>
-                        </div>
-                      </div>
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                          worker.is_available
-                            ? "bg-primary/10 text-primary"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {worker.is_available ? "Available" : "Busy"}
-                      </span>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="flex items-center gap-1">
-                        <Star className="w-4 h-4 text-accent fill-accent" />
-                        <span className="font-semibold text-foreground">{worker.rating}</span>
-                        <span className="text-muted-foreground text-sm">({worker.reviews_count})</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                        <Clock className="w-4 h-4" />
-                        {worker.experience}
-                      </div>
-                    </div>
-
-                    {/* Location */}
-                    <div className="flex items-center gap-1 text-muted-foreground text-sm mb-4">
-                      <MapPin className="w-4 h-4" />
-                      {worker.area}
-                    </div>
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between pt-4 border-t border-border">
-                      <span className="font-semibold text-foreground">{worker.price}</span>
-                      <Button 
-                        variant="default" 
-                        size="sm"
-                        onClick={() => handleBookWorker(worker)}
-                        disabled={!worker.is_available}
-                      >
-                        Book Now
-                      </Button>
-                    </div>
-                  </div>
+                    worker={worker}
+                    onBook={handleBookWorker}
+                    onViewProfile={handleViewProfile}
+                  />
                 ))}
               </div>
             )}
