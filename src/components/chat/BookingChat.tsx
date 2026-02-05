@@ -76,7 +76,7 @@ const BookingChat = ({ booking, onClose }: BookingChatProps) => {
     if (error) {
       console.error('Error fetching messages:', error);
     } else {
-      setMessages(data || []);
+      setMessages((data as Message[]) || []);
     }
   };
 
