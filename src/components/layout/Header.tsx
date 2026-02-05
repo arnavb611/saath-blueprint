@@ -125,6 +125,10 @@ const Header = () => {
             <div className="flex flex-col gap-2 pt-4 border-t border-border mt-2">
               {isAuthenticated ? (
                 <>
+                  <Button variant="outline" className="w-full" onClick={() => { navigate('/account'); setMobileMenuOpen(false); }}>
+                    <User className="w-4 h-4 mr-2" />
+                    My Account
+                  </Button>
                   <Button variant="outline" className="w-full" onClick={() => { navigate('/my-bookings'); setMobileMenuOpen(false); }}>
                     <Calendar className="w-4 h-4 mr-2" />
                     My Bookings
@@ -135,6 +139,7 @@ const Header = () => {
                     </Button>
                   )}
                   <Button variant="default" className="w-full" onClick={() => { handleLogout(); setMobileMenuOpen(false); }}>
+                    <LogOut className="w-4 h-4 mr-2" />
                     Logout
                   </Button>
                 </>
