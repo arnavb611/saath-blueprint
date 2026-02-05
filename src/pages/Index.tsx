@@ -6,6 +6,7 @@ import HowItWorksSection from "@/components/sections/HowItWorksSection";
 import ProfessionalsSection from "@/components/sections/ProfessionalsSection";
 import TrustSection from "@/components/sections/TrustSection";
 import CTASection from "@/components/sections/CTASection";
+import ReferralSection from "@/components/sections/ReferralSection";
 
 const Index = () => {
   return (
@@ -16,6 +17,7 @@ const Index = () => {
         <ServicesSection />
         <HowItWorksSection />
         <ProfessionalsSection />
+        <ReferralSection />
         <TrustSection />
         <CTASection />
       </main>
