@@ -14,7 +14,10 @@ import {
   X,
   CheckCircle,
   AlertCircle,
-  Loader2
+  Loader2,
+  MessageSquare,
+  RefreshCw,
+  Filter
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -26,6 +29,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import BookingChat from '@/components/chat/BookingChat';
 
 interface Booking {
   id: string;
@@ -66,6 +77,8 @@ const MyBookings = () => {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [chatBooking, setChatBooking] = useState<Booking | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -81,9 +94,8 @@ const MyBookings = () => {
   const fetchBookings = async () => {
     setLoading(true);
     
-    // Fetch bookings with worker details
     const { data: bookingsData, error: bookingsError } = await supabase
-      .from('bookings' as never)
+      .from('bookings')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -96,9 +108,9 @@ const MyBookings = () => {
 
     // Fetch worker details for each booking
     const bookingsWithWorkers: Booking[] = [];
-    for (const booking of (bookingsData as unknown as Booking[]) || []) {
+    for (const booking of (bookingsData as Booking[]) || []) {
       const { data: workerData } = await supabase
-        .from('workers' as never)
+        .from('workers')
         .select('id, name, phone, email, photo, rating, area, price')
         .eq('id', booking.worker_id)
         .single();
@@ -125,8 +137,8 @@ const MyBookings = () => {
     setShowCancelDialog(false);
 
     const { error } = await supabase
-      .from('bookings' as never)
-      .update({ status: 'cancelled' } as never)
+      .from('bookings')
+      .update({ status: 'cancelled' })
       .eq('id', selectedBookingId);
 
     if (error) {
@@ -141,6 +153,10 @@ const MyBookings = () => {
     setSelectedBookingId(null);
   };
 
+  const handleRebook = (booking: Booking) => {
+    navigate(`/services?service=${encodeURIComponent(booking.service)}`);
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Not scheduled';
     return new Date(dateString).toLocaleDateString('en-IN', {
@@ -152,6 +168,10 @@ const MyBookings = () => {
       minute: '2-digit',
     });
   };
+
+  const filteredBookings = bookings.filter(booking => 
+    statusFilter === 'all' || booking.status === statusFilter
+  );
 
   if (authLoading || loading) {
     return (
@@ -193,21 +213,44 @@ const MyBookings = () => {
       </header>
 
       <main className="container py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            My <span className="text-gradient">Bookings</span>
-          </h1>
-          <p className="text-muted-foreground">
-            View and manage your service bookings
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              My <span className="text-gradient">Bookings</span>
+            </h1>
+            <p className="text-muted-foreground">
+              View and manage your service bookings
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {bookings.length === 0 ? (
+        {filteredBookings.length === 0 ? (
           <div className="text-center py-16">
             <div className="text-6xl mb-4">📋</div>
-            <h3 className="text-xl font-semibold text-foreground mb-2">No bookings yet</h3>
+            <h3 className="text-xl font-semibold text-foreground mb-2">
+              {statusFilter === 'all' ? 'No bookings yet' : `No ${statusFilter} bookings`}
+            </h3>
             <p className="text-muted-foreground mb-6">
-              You haven't made any bookings yet. Start by browsing our services!
+              {statusFilter === 'all' 
+                ? "You haven't made any bookings yet. Start by browsing our services!"
+                : "Try changing the filter to see other bookings"
+              }
             </p>
             <Button variant="default" onClick={() => navigate('/services')}>
               Browse Services
@@ -215,7 +258,7 @@ const MyBookings = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {bookings.map((booking) => {
+            {filteredBookings.map((booking) => {
               const StatusIcon = statusConfig[booking.status]?.icon || AlertCircle;
               const statusInfo = statusConfig[booking.status] || statusConfig.pending;
 
@@ -280,13 +323,35 @@ const MyBookings = () => {
                       {/* Actions */}
                       <div className="flex flex-wrap gap-2">
                         {booking.worker?.phone && booking.status !== 'cancelled' && booking.status !== 'completed' && (
-                          <a
-                            href={`tel:${booking.worker.phone}`}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
+                          <>
+                            <a
+                              href={`tel:${booking.worker.phone}`}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
+                            >
+                              <Phone className="w-4 h-4" />
+                              Call
+                            </a>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setChatBooking(booking)}
+                              className="gap-2"
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                              Chat
+                            </Button>
+                          </>
+                        )}
+                        {(booking.status === 'completed' || booking.status === 'cancelled') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRebook(booking)}
+                            className="gap-2"
                           >
-                            <Phone className="w-4 h-4" />
-                            Call Worker
-                          </a>
+                            <RefreshCw className="w-4 h-4" />
+                            Book Again
+                          </Button>
                         )}
                         {booking.status === 'pending' && (
                           <Button
@@ -304,7 +369,7 @@ const MyBookings = () => {
                             ) : (
                               <>
                                 <X className="w-4 h-4 mr-2" />
-                                Cancel Booking
+                                Cancel
                               </>
                             )}
                           </Button>
@@ -324,6 +389,19 @@ const MyBookings = () => {
           </div>
         )}
       </main>
+
+      {/* Chat Modal */}
+      {chatBooking && chatBooking.worker && (
+        <BookingChat
+          booking={{
+            id: chatBooking.id,
+            worker_name: chatBooking.worker.name,
+            worker_phone: chatBooking.worker.phone,
+            worker_photo: chatBooking.worker.photo,
+          }}
+          onClose={() => setChatBooking(null)}
+        />
+      )}
 
       {/* Cancel Confirmation Dialog */}
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>

@@ -1,8 +1,15 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X, LogOut, Calendar } from "lucide-react";
+import { Menu, X, LogOut, Calendar, User } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSupabaseAuthContext } from "@/contexts/SupabaseAuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const navLinks = [
   { name: "Services", href: "/services" },
@@ -48,19 +55,37 @@ const Header = () => {
         <div className="hidden md:flex items-center gap-3">
           {isAuthenticated ? (
             <>
-              <span className="text-sm text-muted-foreground">Hi, {profile?.name || 'User'}</span>
-              <Button variant="outline" size="sm" onClick={() => navigate('/my-bookings')}>
-                <Calendar className="w-4 h-4 mr-2" />
-                My Bookings
-              </Button>
-              {isAdmin && (
-                <Button variant="outline" size="sm" onClick={() => navigate('/admin')}>
-                  Admin
-                </Button>
-              )}
-              <Button variant="ghost" size="sm" onClick={handleLogout}>
-                <LogOut className="w-4 h-4" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <User className="w-4 h-4" />
+                    {profile?.name || 'Account'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate('/account')}>
+                    <User className="w-4 h-4 mr-2" />
+                    My Account
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/my-bookings')}>
+                    <Calendar className="w-4 h-4 mr-2" />
+                    My Bookings
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => navigate('/admin')}>
+                        Admin Dashboard
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           ) : (
             <>
@@ -100,6 +125,10 @@ const Header = () => {
             <div className="flex flex-col gap-2 pt-4 border-t border-border mt-2">
               {isAuthenticated ? (
                 <>
+                  <Button variant="outline" className="w-full" onClick={() => { navigate('/account'); setMobileMenuOpen(false); }}>
+                    <User className="w-4 h-4 mr-2" />
+                    My Account
+                  </Button>
                   <Button variant="outline" className="w-full" onClick={() => { navigate('/my-bookings'); setMobileMenuOpen(false); }}>
                     <Calendar className="w-4 h-4 mr-2" />
                     My Bookings
@@ -110,6 +139,7 @@ const Header = () => {
                     </Button>
                   )}
                   <Button variant="default" className="w-full" onClick={() => { handleLogout(); setMobileMenuOpen(false); }}>
+                    <LogOut className="w-4 h-4 mr-2" />
                     Logout
                   </Button>
                 </>
