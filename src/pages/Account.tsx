@@ -12,6 +12,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import ReferralCard from '@/components/referral/ReferralCard';
+import PaymentHistory from '@/components/payment/PaymentHistory';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -150,8 +151,9 @@ const Account = () => {
             </Button>
           </div>
 
-          {/* Referral Section */}
-          <div>
+          {/* Right Column */}
+          <div className="space-y-6">
+            <PaymentHistory />
             <ReferralCard />
           </div>
         </div>
